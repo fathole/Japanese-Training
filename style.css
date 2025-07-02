@@ -166,3 +166,38 @@ h1 {
 .token.symbol ruby { border-bottom: 2px dotted gray; }
 .token.other ruby { border-bottom: 2px solid black; }
 
+
+.hint-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 4px;
+  min-width: 2em;
+}
+
+.hint-block .word {
+  font-size: 1.2em;
+  line-height: 1.2;
+}
+
+.hint-block .underline {
+  width: 100%;
+  border-bottom: 2px solid currentColor;
+  margin: 2px 0;
+  height: 0;
+}
+
+.hint-block .romaji {
+  font-size: 0.7em;
+  color: #888;
+  line-height: 1.2;
+}
+
+.hint-block.noun { color: orange; }
+.hint-block.verb { color: green; }
+.hint-block.particle { color: blue; }
+.hint-block.adjective { color: red; }
+.hint-block.adverb { color: purple; }
+.hint-block.auxiliary { color: teal; }
+.hint-block.symbol { color: gray; }
+.hint-block.other { color: black; }

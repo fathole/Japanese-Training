@@ -145,40 +145,67 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+// === MODIFIED FUNCTION START ===
+// 此函式已被修改，以在詞組內部添加空格，同時保持原始的區塊結構和顏色
 function createHintRubyText(sentence, callback) {
     kuromoji.builder({ dicPath: './dict/' }).build((err, tokenizer) => {
         if (err) {
             console.error(err);
+            callback(sentence); // Fallback to original sentence on error
             return;
         }
 
         const tokens = tokenizer.tokenize(sentence);
         const container = document.createElement("div");
 
+        // 步驟 1: 將 token 組合成邏輯單位（文節）
+        const groupedTokens = [];
         tokens.forEach(token => {
-            const surface = token.surface_form;
-            if (surface.trim() === "") {
-                container.appendChild(document.createTextNode(" "));
-                return;
+            if (!token.surface_form.trim()) return; 
+
+            const isFunctionWord = token.pos === '助詞' || token.pos === '助動詞';
+            
+            if (groupedTokens.length === 0 || !isFunctionWord) {
+                groupedTokens.push([token]);
+            } else {
+                groupedTokens[groupedTokens.length - 1].push(token);
             }
+        });
 
-            const span = document.createElement("span");
-            span.className = "token " + mapPosToClass(token.pos);
+        // 步驟 2: 為每個詞組生成 HTML
+        groupedTokens.forEach(group => {
+            // **核心修改點**：使用 .join(' ') 來在單詞之間加入空格
+            const surface = group.map(t => t.surface_form).join(' ');
+            const romajiText = group.map(t => getAccurateRomaji(t)).join(' ');
+            
+            const posClass = mapPosToClass(group[0].pos);
 
-            const ruby = document.createElement("ruby");
-            ruby.textContent = surface;
+            const block = document.createElement("span");
+            block.className = "hint-block " + posClass;
 
-            const rt = document.createElement("rt");
-            rt.textContent = getAccurateRomaji(token);
+            const word = document.createElement("span");
+            word.className = "word";
+            word.textContent = surface; // e.g., "僕ら が"
 
-            ruby.appendChild(rt);
-            span.appendChild(ruby);
-            container.appendChild(span);
+            const underline = document.createElement("span");
+            underline.className = "underline";
+
+            const romajiSpan = document.createElement("span");
+            romajiSpan.className = "romaji";
+            romajiSpan.textContent = romajiText; // e.g., "bokura ga"
+
+            block.appendChild(word);
+            block.appendChild(underline);
+            block.appendChild(romajiSpan);
+            container.appendChild(block);
+             
+            container.appendChild(document.createTextNode(" "));
         });
 
         callback(container.innerHTML);
     });
 }
+// === MODIFIED FUNCTION END ===
 
 function mapPosToClass(pos) {
     switch (pos) {
@@ -189,6 +216,10 @@ function mapPosToClass(pos) {
         case "形容詞": return "adjective";
         case "副詞": return "adverb";
         case "記号": return "symbol";
+        case "感動詞": return "other"; 
+        case "連体詞": return "other"; 
+        case "接続詞": return "other"; 
+        case "接頭詞": return "other"; 
         default: return "other";
     }
 }
@@ -197,5 +228,12 @@ function getAccurateRomaji(token) {
     if (token.pos === "助詞" && token.surface_form === "は") return "wa";
     if (token.pos === "助詞" && token.surface_form === "へ") return "e";
     if (token.pos === "助詞" && token.surface_form === "を") return "o";
-    return token.reading ? wanakana.toRomaji(token.reading) : "";
+    
+    const reading = token.reading || token.surface_form;
+    
+    if (reading.endsWith('ッ')) {
+         return wanakana.toRomaji(reading.slice(0, -1)) + wanakana.toRomaji(reading.slice(0, -1)).slice(-1);
+    }
+
+    return wanakana.toRomaji(reading);
 }
