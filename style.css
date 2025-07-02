@@ -107,7 +107,6 @@ h1 {
     color: black;
     z-index: 1;
     pointer-events: none;
-    min-height: 1.5em;
 }
 
 /* 上層：透明輸入 + 游標 */
@@ -138,3 +137,32 @@ h1 {
     color: red;
     text-decoration: underline;
 }
+
+
+.hint-text ruby {
+  display: inline-block;
+  text-align: center;
+  min-width: 2.5em;
+  margin: 0 4px;
+  line-height: 1.2;
+}
+
+.hint-text rt {
+  font-size: 0.65em;
+  color: #888;
+  display: block;
+  line-height: 1.2;
+  height: 1.2em;
+  text-align: center;
+  margin-top: 0.25em;
+}
+
+.token.noun ruby { border-bottom: 2px solid orange; }
+.token.verb ruby { border-bottom: 2px solid green; }
+.token.particle ruby { border-bottom: 2px solid blue; }
+.token.adjective ruby { border-bottom: 2px solid red; }
+.token.adverb ruby { border-bottom: 2px solid purple; }
+.token.auxiliary ruby { border-bottom: 2px solid teal; }
+.token.symbol ruby { border-bottom: 2px dotted gray; }
+.token.other ruby { border-bottom: 2px solid black; }
+
