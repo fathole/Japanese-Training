@@ -9,7 +9,12 @@ document.addEventListener("DOMContentLoaded", () => {
     let keepAliveIntervalId;
     let selectedVoiceName = '';
 
-     // --- 效能優化 1：一次性初始化 Kuromoji ---
+   const noveltyVoiceBlocklist = [
+        'Eddy', 'Reed', 'Shelley', 'Grandma', 'Rocko', 'Grandpa', 'Sandy', 'Flo',
+        'Albert', 'Bahh', 'Bells', 'Boing', 'Bubbles', 'Cellos', 'Good News',
+        'Jester', 'Organ', 'Trinoids', 'Whisper', 'Zarvox'
+    ];
+
     let tokenizerPromise;
     function initializeTokenizer() {
         console.log("正在初始化 Kuromoji 分詞引擎... (只需一次)");
@@ -28,12 +33,19 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeTokenizer(); // 頁面載入時立即開始初始化
 
 
-    function populateVoiceList() {
+   function populateVoiceList() {
         voices = window.speechSynthesis.getVoices();
-        const previouslySelected = voiceSelect.value;
-        voiceSelect.innerHTML = ''; // 清空選項
+        
+        // --- 核心優化 2：過濾掉黑名單中的語音 ---
+        const japaneseVoices = voices
+            .filter(voice => voice.lang === 'ja-JP' && !noveltyVoiceBlocklist.includes(voice.name));
 
-        const japaneseVoices = voices.filter(voice => voice.lang === 'ja-JP');
+        // 用於除錯：在控制台查看瀏覽器到底提供了哪些過濾後的語音
+        console.log("過濾後可用的日語語音:", japaneseVoices);
+        console.table(japaneseVoices);
+
+        const previouslySelected = localStorage.getItem('preferredJapaneseVoice') || voiceSelect.value;
+        voiceSelect.innerHTML = '';
 
         if (japaneseVoices.length > 0) {
             japaneseVoices.forEach(voice => {
@@ -42,16 +54,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 option.setAttribute('value', voice.name);
                 voiceSelect.appendChild(option);
             });
-            // 嘗試恢復使用者之前的選擇
-            voiceSelect.value = previouslySelected || japaneseVoices[0].name;
+            
+            // 檢查之前儲存的選擇是否還在列表中
+            const isValidSelection = japaneseVoices.some(v => v.name === previouslySelected);
+            if (isValidSelection) {
+                voiceSelect.value = previouslySelected;
+            } else {
+                voiceSelect.value = japaneseVoices[0].name; // 如果不在，則選擇第一個
+            }
+
         } else {
             const option = document.createElement('option');
-            option.textContent = '未找到日語語音';
+            option.textContent = '未找到可用的日語語音';
             option.disabled = true;
             voiceSelect.appendChild(option);
         }
-        // 觸發一次 change 事件，以確保 selectedVoiceName 被初始化
+        
         selectedVoiceName = voiceSelect.value;
+        localStorage.setItem('preferredJapaneseVoice', selectedVoiceName); // 初始化時也儲存一次
     }
 
     function loadAndPopulateVoices() {
@@ -65,7 +85,11 @@ document.addEventListener("DOMContentLoaded", () => {
     loadAndPopulateVoices(); // 初始呼叫
 
     // 當使用者改變選項時，更新選擇的語音
-    voiceSelect.addEventListener('change', () => {selectedVoiceName = voiceSelect.value;});
+     voiceSelect.addEventListener('change', () => {
+        selectedVoiceName = voiceSelect.value;
+        localStorage.setItem('preferredJapaneseVoice', selectedVoiceName);
+        console.log(`使用者選擇並儲存了語音: ${selectedVoiceName}`);
+    });
 
     function speak(text) {
         if (!('speechSynthesis' in window)) return;
@@ -140,59 +164,121 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- 改造點 1：修改 hintBtn 的事件監聽器以支援 async ---
-    function createPracticeCard(sentence, index) {
-        const card = document.createElement("div");
-        card.className = "practice-card";
+function createPracticeCard(sentence, index) {
+    const card = document.createElement("div");
+    card.className = "practice-card";
 
-        const controls = document.createElement("div");
-        controls.className = "practice-controls";
+    const controls = document.createElement("div");
+    controls.className = "practice-controls";
 
-        const playBtn = document.createElement("button");
-        playBtn.textContent = "🔊 播放";
-        playBtn.addEventListener("click", () => speak(sentence));
+    const playBtn = document.createElement("button");
+    playBtn.textContent = "🔊 播放";
+    playBtn.addEventListener("click", () => speak(sentence));
 
-        const hintBtn = document.createElement("button");
-        hintBtn.textContent = "💡 顯示提示";
-        hintBtn.style.position = 'relative'; // 為讀取動畫定位
+    const hintBtn = document.createElement("button");
+    hintBtn.textContent = "💡 顯示提示";
+    hintBtn.style.position = 'relative';
 
-        const hintText = document.createElement("div");
-        hintText.className = "hint-text";
+    const hintText = document.createElement("div");
+    hintText.className = "hint-text";
 
-        // --- 核心修改點 ---
-        hintBtn.addEventListener("click", async () => {
-            hintBtn.disabled = true; // 防止重複點擊
-            hintBtn.textContent = "分析中...";
+    hintBtn.addEventListener("click", async () => {
+        hintBtn.disabled = true;
+        hintBtn.textContent = "分析中...";
+        try {
+            const hintContainerElement = await createHintRubyText(sentence);
+            hintText.innerHTML = '';
+            hintText.appendChild(hintContainerElement);
+            hintText.style.display = "block";
+            hintBtn.style.display = "none";
+        } catch (error) {
+            console.error("無法生成提示:", error);
+            hintText.textContent = "生成提示失敗，請稍後再試。";
+            hintText.style.display = "block";
+            hintBtn.textContent = "💡 顯示提示";
+            hintBtn.disabled = false;
+        }
+    });
 
-            try {
-                // 等待非同步的 createHintRubyText 完成
-                const hintContainerElement = await createHintRubyText(sentence);
-                
-                hintText.innerHTML = '';
-                hintText.appendChild(hintContainerElement);
-                hintText.style.display = "block";
-                hintBtn.style.display = "none"; // 成功後隱藏按鈕
-            } catch (error) {
-                console.error("無法生成提示:", error);
-                hintText.textContent = "生成提示失敗，請稍後再試。";
-                hintText.style.display = "block";
-                hintBtn.textContent = "💡 顯示提示"; // 失敗後恢復按鈕
-                hintBtn.disabled = false;
+    const tickMark = document.createElement("span");
+    tickMark.textContent = "✔";
+    tickMark.style.display = "none";
+    tickMark.style.color = "green";
+    tickMark.style.marginLeft = "10px";
+    tickMark.style.fontWeight = "bold";
+
+    controls.appendChild(playBtn);
+    controls.appendChild(hintBtn);
+    controls.appendChild(tickMark);
+
+    const inputWrapper = document.createElement("div");
+    inputWrapper.className = "input-wrapper";
+
+    const displayArea = document.createElement("div");
+    displayArea.className = "display-layer";
+
+    const editableInput = document.createElement("div");
+    editableInput.className = "input-layer";
+    editableInput.contentEditable = true;
+
+    // --- 這就是遺失並已恢復的關鍵程式碼 ---
+    editableInput.addEventListener("input", () => {
+        const userInput = editableInput.innerText;
+        const correctAnswer = sentence;
+        let resultHTML = "";
+        let isAllCorrect = true;
+
+        for (let i = 0; i < userInput.length; i++) {
+            const typedChar = userInput[i];
+            const correctChar = correctAnswer[i];
+
+            const isMatch = (
+                typedChar === correctChar ||
+                (typedChar === ' ' && correctChar === '　') ||
+                (typedChar === '　' && correctChar === ' ')
+            );
+
+            if (typedChar === '\n') {
+                resultHTML += '<br>';
+                continue;
             }
-        });
-        // --- 修改結束 ---
 
-        // ... 其他 createPracticeCard 的程式碼不變 ...
-        const tickMark = document.createElement("span");
-        tickMark.textContent = "✔"; tickMark.style.display = "none"; tickMark.style.color = "green"; tickMark.style.marginLeft = "10px"; tickMark.style.fontWeight = "bold";
-        controls.appendChild(playBtn); controls.appendChild(hintBtn); controls.appendChild(tickMark);
-        const inputWrapper = document.createElement("div"); inputWrapper.className = "input-wrapper";
-        const displayArea = document.createElement("div"); displayArea.className = "display-layer";
-        const editableInput = document.createElement("div"); editableInput.className = "input-layer"; editableInput.contentEditable = true;
-        editableInput.addEventListener("input", () => { /* ... 內容不變 ... */ });
-        inputWrapper.appendChild(displayArea); inputWrapper.appendChild(editableInput);
-        card.appendChild(controls); card.appendChild(hintText); card.appendChild(inputWrapper);
-        return card;
-    }
+            if (i < correctAnswer.length && isMatch) {
+                resultHTML += `<span class="correct">${typedChar}</span>`;
+            } else {
+                resultHTML += `<span class="incorrect">${typedChar}</span>`;
+                isAllCorrect = false;
+            }
+        }
+
+        // 更新底層的顏色顯示
+        displayArea.innerHTML = resultHTML;
+
+        // 檢查是否全部正確
+        if (userInput === correctAnswer || (isAllCorrect && userInput.length === correctAnswer.length)) {
+            editableInput.setAttribute("contenteditable", "false");
+            editableInput.style.caretColor = "transparent";
+            tickMark.style.display = "inline";
+            
+            // 自動跳轉到下一個卡片
+            const allCards = Array.from(practiceArea.querySelectorAll(".practice-card .input-layer"));
+            const currentCardIndex = allCards.indexOf(editableInput);
+            if (currentCardIndex > -1 && currentCardIndex + 1 < allCards.length) {
+                focusCard(currentCardIndex + 1);
+            }
+        }
+    });
+    // --- 關鍵程式碼結束 ---
+
+    inputWrapper.appendChild(displayArea);
+    inputWrapper.appendChild(editableInput);
+
+    card.appendChild(controls);
+    card.appendChild(hintText);
+    card.appendChild(inputWrapper);
+
+    return card;
+}
 
     function focusCard(index) {
         const cards = practiceArea.querySelectorAll(".practice-card .input-layer");
