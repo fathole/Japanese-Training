@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem('preferredJapaneseVoice', selectedVoiceName); // 初始化時也儲存一次
 
         if (typeof responsiveVoice !== "undefined") {
-            ["Japanese Female", "Japanese Male"].forEach(rv => {
+            ["Japanese Male"].forEach(rv => {
                 const option = document.createElement('option');
                 option.textContent = `${rv} (ResponsiveVoice)`;
                 option.value = `rv::${rv}`;
