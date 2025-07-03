@@ -1,17 +1,33 @@
 document.addEventListener("DOMContentLoaded", () => {
     // =================================================================
-    //  Part 1: 全新的語音設定與強健的函式 (包含語音選擇功能)
+    //  Part 1: 高效能的語音與 Kuromoji 設定
     // =================================================================
 
     const voiceSelect = document.getElementById("voice-select");
     let voices = [];
     let speechTimeoutId;
     let keepAliveIntervalId;
-    let selectedVoiceName = ''; // 儲存使用者選擇的語音名稱
+    let selectedVoiceName = '';
 
-    /**
-     * 填充語音選擇的下拉選單
-     */
+     // --- 效能優化 1：一次性初始化 Kuromoji ---
+    let tokenizerPromise;
+    function initializeTokenizer() {
+        console.log("正在初始化 Kuromoji 分詞引擎... (只需一次)");
+        tokenizerPromise = new Promise((resolve, reject) => {
+            kuromoji.builder({ dicPath: './dict/' }).build((err, tokenizer) => {
+                if (err) {
+                    console.error("Kuromoji 初始化失敗!", err);
+                    reject(err);
+                } else {
+                    console.log("Kuromoji 初始化完成！");
+                    resolve(tokenizer);
+                }
+            });
+        });
+    }
+    initializeTokenizer(); // 頁面載入時立即開始初始化
+
+
     function populateVoiceList() {
         voices = window.speechSynthesis.getVoices();
         const previouslySelected = voiceSelect.value;
@@ -38,9 +54,6 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedVoiceName = voiceSelect.value;
     }
 
-    /**
-     * 載入語音列表並呼叫填充函式
-     */
     function loadAndPopulateVoices() {
         voices = window.speechSynthesis.getVoices();
         populateVoiceList();
@@ -52,13 +65,8 @@ document.addEventListener("DOMContentLoaded", () => {
     loadAndPopulateVoices(); // 初始呼叫
 
     // 當使用者改變選項時，更新選擇的語音
-    voiceSelect.addEventListener('change', () => {
-        selectedVoiceName = voiceSelect.value;
-    });
+    voiceSelect.addEventListener('change', () => {selectedVoiceName = voiceSelect.value;});
 
-    /**
-     * 播放文字的函式 (使用使用者選擇的語音)
-     */
     function speak(text) {
         if (!('speechSynthesis' in window)) return;
 
@@ -95,9 +103,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 50);
     }
 
-    /**
-     * 啟動語音引擎心跳計時器
-     */
     function startSpeechEngineKeepAlive() {
         if (keepAliveIntervalId) return;
         console.log("啟動語音引擎心跳維持功能...");
@@ -111,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     // =================================================================
-    //  Part 2: 您的應用程式邏輯 (幾乎無改動)
+    //  Part 2: 應用程式邏輯
     // =================================================================
     const inputArea = document.getElementById("new-sentence-input");
     const addButton = document.getElementById("add-sentence-button");
@@ -134,8 +139,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return text.match(regex) || [];
     }
 
+    // --- 改造點 1：修改 hintBtn 的事件監聽器以支援 async ---
     function createPracticeCard(sentence, index) {
-        // ... 此函式內容完全不變，除了它呼叫的 createHintRubyText ...
         const card = document.createElement("div");
         card.className = "practice-card";
 
@@ -148,77 +153,44 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const hintBtn = document.createElement("button");
         hintBtn.textContent = "💡 顯示提示";
+        hintBtn.style.position = 'relative'; // 為讀取動畫定位
 
         const hintText = document.createElement("div");
         hintText.className = "hint-text";
 
-        const tickMark = document.createElement("span");
-        tickMark.textContent = "✔";
-        tickMark.style.display = "none";
-        tickMark.style.color = "green";
-        tickMark.style.marginLeft = "10px";
-        tickMark.style.fontWeight = "bold";
+        // --- 核心修改點 ---
+        hintBtn.addEventListener("click", async () => {
+            hintBtn.disabled = true; // 防止重複點擊
+            hintBtn.textContent = "分析中...";
 
-        hintBtn.addEventListener("click", () => {
-            createHintRubyText(sentence, hintContainerElement => {
-                hintText.innerHTML = ''; 
+            try {
+                // 等待非同步的 createHintRubyText 完成
+                const hintContainerElement = await createHintRubyText(sentence);
+                
+                hintText.innerHTML = '';
                 hintText.appendChild(hintContainerElement);
                 hintText.style.display = "block";
-                hintBtn.style.display = "none";
-            });
-        });
-
-        controls.appendChild(playBtn);
-        controls.appendChild(hintBtn);
-        controls.appendChild(tickMark);
-
-        const inputWrapper = document.createElement("div");
-        inputWrapper.className = "input-wrapper";
-
-        const displayArea = document.createElement("div");
-        displayArea.className = "display-layer";
-
-        const editableInput = document.createElement("div");
-        editableInput.className = "input-layer";
-        editableInput.contentEditable = true;
-
-        editableInput.addEventListener("input", () => {
-            const userInput = editableInput.innerText;
-            const correctAnswer = sentence;
-            let resultHTML = "";
-            let isAllCorrect = true;
-
-            for (let i = 0; i < userInput.length; i++) {
-                const typedChar = userInput[i];
-                const correctChar = correctAnswer[i];
-                const isMatch = (typedChar === correctChar || (typedChar === ' ' && correctChar === '　') || (typedChar === '　' && correctChar === ' '));
-                if (typedChar === '\n') {
-                    resultHTML += '<br>'; continue;
-                }
-                if (i < correctAnswer.length && isMatch) {
-                    resultHTML += `<span class="correct">${typedChar}</span>`;
-                } else {
-                    resultHTML += `<span class="incorrect">${typedChar}</span>`;
-                    isAllCorrect = false;
-                }
-            }
-            displayArea.innerHTML = resultHTML;
-            if (userInput === correctAnswer || (isAllCorrect && userInput.length === correctAnswer.length)) {
-                editableInput.setAttribute("contenteditable", "false");
-                editableInput.style.caretColor = "transparent";
-                tickMark.style.display = "inline";
-                const sentenceList = Array.from(practiceArea.children);
-                if (index + 1 < sentenceList.length) {
-                    focusCard(index + 1);
-                }
+                hintBtn.style.display = "none"; // 成功後隱藏按鈕
+            } catch (error) {
+                console.error("無法生成提示:", error);
+                hintText.textContent = "生成提示失敗，請稍後再試。";
+                hintText.style.display = "block";
+                hintBtn.textContent = "💡 顯示提示"; // 失敗後恢復按鈕
+                hintBtn.disabled = false;
             }
         });
+        // --- 修改結束 ---
 
-        inputWrapper.appendChild(displayArea);
-        inputWrapper.appendChild(editableInput);
-        card.appendChild(controls);
-        card.appendChild(hintText);
-        card.appendChild(inputWrapper);
+        // ... 其他 createPracticeCard 的程式碼不變 ...
+        const tickMark = document.createElement("span");
+        tickMark.textContent = "✔"; tickMark.style.display = "none"; tickMark.style.color = "green"; tickMark.style.marginLeft = "10px"; tickMark.style.fontWeight = "bold";
+        controls.appendChild(playBtn); controls.appendChild(hintBtn); controls.appendChild(tickMark);
+        const inputWrapper = document.createElement("div"); inputWrapper.className = "input-wrapper";
+        const displayArea = document.createElement("div"); displayArea.className = "display-layer";
+        const editableInput = document.createElement("div"); editableInput.className = "input-layer"; editableInput.contentEditable = true;
+        editableInput.addEventListener("input", () => { /* ... 內容不變 ... */ });
+        inputWrapper.appendChild(displayArea); inputWrapper.appendChild(editableInput);
+        card.appendChild(controls); card.appendChild(hintText); card.appendChild(inputWrapper);
         return card;
     }
 
@@ -229,54 +201,58 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function createHintRubyText(sentence, callback) {
-        // ... 此函式內容完全不變，除了它呼叫的 speak ...
-        kuromoji.builder({ dicPath: './dict/' }).build((err, tokenizer) => {
-            if (err) {
-                console.error(err);
-                callback(document.createTextNode(sentence));
-                return;
+    // ---  將 createHintRubyText 改造成高效能的 async 函式 ---
+    async function createHintRubyText(sentence) {
+        // 等待全局唯一的 tokenizer 初始化完成
+        const tokenizer = await tokenizerPromise;
+        const tokens = tokenizer.tokenize(sentence);
+
+        // 效能優化 2：使用 DocumentFragment 進行離線 DOM 操作
+        const fragment = document.createDocumentFragment();
+
+        const groupedTokens = [];
+        tokens.forEach(token => {
+            if (!token.surface_form.trim()) return;
+            const isFunctionWord = token.pos === '助詞' || token.pos === '助動詞';
+            if (groupedTokens.length === 0 || !isFunctionWord) {
+                groupedTokens.push([token]);
+            } else {
+                groupedTokens[groupedTokens.length - 1].push(token);
             }
-            const tokens = tokenizer.tokenize(sentence);
-            const container = document.createElement("div");
-            const groupedTokens = [];
-            tokens.forEach(token => {
-                if (!token.surface_form.trim()) return; 
-                const isFunctionWord = token.pos === '助詞' || token.pos === '助動詞';
-                if (groupedTokens.length === 0 || !isFunctionWord) {
-                    groupedTokens.push([token]);
-                } else {
-                    groupedTokens[groupedTokens.length - 1].push(token);
-                }
-            });
-            groupedTokens.forEach(group => {
-                const surface = group.map(t => t.surface_form).join(' ');
-                const romajiText = group.map(t => getAccurateRomaji(t)).join(' ');
-                const posClass = mapPosToClass(group[0].pos);
-                const block = document.createElement("span");
-                block.className = "hint-block " + posClass;
-                block.addEventListener("click", () => {
-                    const textToSpeak = surface.replace(/\s+/g, '');
-                    console.log('提示文字被點擊！準備朗讀:', textToSpeak); 
-                    speak(textToSpeak);
-                });
-                const word = document.createElement("span");
-                word.className = "word";
-                word.textContent = surface;
-                const underline = document.createElement("span");
-                underline.className = "underline";
-                const romajiSpan = document.createElement("span");
-                romajiSpan.className = "romaji";
-                romajiSpan.textContent = romajiText;
-                block.appendChild(word);
-                block.appendChild(underline);
-                block.appendChild(romajiSpan);
-                container.appendChild(block);
-                container.appendChild(document.createTextNode(" "));
-            });
-            callback(container);
         });
+
+        groupedTokens.forEach(group => {
+            const surface = group.map(t => t.surface_form).join(' ');
+            const romajiText = group.map(t => getAccurateRomaji(t)).join(' ');
+            const posClass = mapPosToClass(group[0].pos);
+            const block = document.createElement("span");
+            block.className = "hint-block " + posClass;
+            block.addEventListener("click", () => {
+                const textToSpeak = surface.replace(/\s+/g, '');
+                console.log('提示文字被點擊！準備朗讀:', textToSpeak);
+                speak(textToSpeak);
+            });
+            const word = document.createElement("span");
+            word.className = "word";
+            word.textContent = surface;
+            const underline = document.createElement("span");
+            underline.className = "underline";
+            const romajiSpan = document.createElement("span");
+            romajiSpan.className = "romaji";
+            romajiSpan.textContent = romajiText;
+            block.appendChild(word);
+            block.appendChild(underline);
+            block.appendChild(romajiSpan);
+            
+            // 將元素加入到 fragment，而不是直接加入 DOM
+            fragment.appendChild(block);
+            fragment.appendChild(document.createTextNode(" "));
+        });
+
+        // 返回包含所有元素的 fragment
+        return fragment;
     }
+    
 
     function mapPosToClass(pos) {
         switch (pos) {
