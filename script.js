@@ -132,16 +132,35 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function speak(text) {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ja-JP';
-            utterance.rate = 0.9;
-            utterance.pitch = 1;
+function speak(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ja-JP';
+
+        // 尋找 Kyoko 語音（for iOS）
+        const voices = window.speechSynthesis.getVoices();
+        const kyoko = voices.find(v => v.name === "Kyoko" && v.lang === "ja-JP");
+        if (kyoko) {
+            utterance.voice = kyoko;
+        }
+
+        // 如果語音還沒載入就 speak，會失敗 → 等待 voice list
+        if (voices.length === 0) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                const updatedVoices = window.speechSynthesis.getVoices();
+                const kyoko = updatedVoices.find(v => v.name === "Kyoko" && v.lang === "ja-JP");
+                if (kyoko) {
+                    utterance.voice = kyoko;
+                }
+                window.speechSynthesis.speak(utterance);
+            };
+        } else {
             window.speechSynthesis.speak(utterance);
         }
     }
+}
 });
 
 
