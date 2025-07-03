@@ -11,6 +11,13 @@
     <div class="container">
         <h1>日語文章聽力練習</h1>
 
+        <div class="voice-selection-area">
+            <label for="voice-select">選擇語音模型:</label>
+            <select id="voice-select">
+                <option value="">正在載入語音...</option>
+            </select>
+        </div>
+
         <div class="add-sentence-area">
             <textarea id="new-sentence-input" placeholder="在這裡貼上日文文章（系統將自動分句）..." rows="5"></textarea>
             <button id="add-sentence-button">載入文章</button>
@@ -19,8 +26,12 @@
         <div id="practice-area"></div>
     </div>
 
+    <div class="version-info">
+        Ver. 0.0.1
+    </div>
+
     <script src="kuromoji.js"></script>
-<script src="https://unpkg.com/wanakana"></script>
-<script src="script.js"></script>
+    <script src="https://unpkg.com/wanakana"></script>
+    <script src="script.js"></script>
 </body>
 </html>

@@ -22,6 +22,26 @@ h1 {
     margin-bottom: 20px;
 }
 
+.voice-selection-area {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.voice-selection-area label {
+    font-size: 1em;
+}
+
+.voice-selection-area select {
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    font-size: 0.9em;
+    min-width: 150px;
+}
+
 .add-sentence-area {
     display: flex;
     gap: 10px;
@@ -173,12 +193,18 @@ h1 {
   align-items: center;
   margin: 0 4px;
   min-width: 2em;
+  cursor: pointer;  
+}
+
+.hint-block:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .hint-block .word {
   font-size: 1.2em;
   line-height: 1.2;
 }
+
 
 .hint-block .underline {
   width: 100%;
@@ -201,3 +227,12 @@ h1 {
 .hint-block.auxiliary { color: teal; }
 .hint-block.symbol { color: gray; }
 .hint-block.other { color: black; }
+
+.version-info {
+    text-align: center;   /* 文字置中 */
+    margin-top: 20px;     /* 與上方容器的間距 */
+    margin-bottom: 20px;  /* 與頁面底部的間距 */
+    font-size: 0.9em;     /* 較小的字體 */
+    color: #999;          /* 使用柔和的灰色 */
+    font-style: italic;   /* 斜體樣式 */
+}
