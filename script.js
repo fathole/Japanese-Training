@@ -75,14 +75,48 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function loadAndPopulateVoices() {
-        voices = window.speechSynthesis.getVoices();
-        populateVoiceList();
+        // 先嘗試直接獲取
+        let currentVoices = window.speechSynthesis.getVoices();
+        if (currentVoices.length > 0) {
+            console.log("語音已成功載入。");
+            populateVoiceList();
+            return;
+        }
+
+        // 如果第一次獲取為空，則依賴 onvoiceschanged 事件
+        console.log("正在等待語音載入...");
+        window.speechSynthesis.onvoiceschanged = () => {
+            console.log("onvoiceschanged 事件觸發！");
+            populateVoiceList();
+            // 為避免重複觸發，一旦成功填充後可以考慮移除監聽器，但通常保留也無妨
+            // window.speechSynthesis.onvoiceschanged = null; 
+        };
+        
+        // 作為備案，如果 onvoiceschanged 在某些瀏覽器上不觸發，則輪詢檢查
+        let voiceLoadInterval = setInterval(() => {
+            currentVoices = window.speechSynthesis.getVoices();
+            if (currentVoices.length > 0) {
+                console.log("透過輪詢成功載入語音。");
+                populateVoiceList();
+                clearInterval(voiceLoadInterval);
+            }
+        }, 250); // 每 250 毫秒檢查一次
+        
+        // 設定一個超時，以防萬一
+        setTimeout(() => {
+            clearInterval(voiceLoadInterval);
+        }, 5000); // 5 秒後停止輪詢
     }
 
     if ('speechSynthesis' in window) {
-        window.speechSynthesis.onvoiceschanged = loadAndPopulateVoices;
+        loadAndPopulateVoices();
+    } else {
+        console.error("瀏覽器不支援 Web Speech API。");
+        const option = document.createElement('option');
+        option.textContent = '瀏覽器不支援語音';
+        option.disabled = true;
+        voiceSelect.appendChild(option);
     }
-    loadAndPopulateVoices(); // 初始呼叫
 
     // 當使用者改變選項時，更新選擇的語音
      voiceSelect.addEventListener('change', () => {
