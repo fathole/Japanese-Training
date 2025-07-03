@@ -105,32 +105,17 @@ h1 {
 }
 
 
-/* === 修正輸入區樣式 v6 === */
-
 .input-wrapper {
     position: relative;
     width: 100%;
     margin: 20px auto;
     border: 1px solid #999;
     border-radius: 5px;
-    min-height: 40px;
+    /* 移除 min-height，讓內容自然撐開 */
 }
 
-/* 底層：顯示比對結果（紅綠字） */
+/* 底層：顯示比對結果（紅綠字）- 疊在最下面 */
 .display-layer {
-    padding: 10px;
-    font-size: 1.5em;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-    text-align: left;
-    color: black;
-    z-index: 1;
-    pointer-events: none;
-}
-
-/* 上層：透明輸入 + 游標 */
-.input-layer {
     position: absolute;
     top: 0;
     left: 0;
@@ -140,13 +125,29 @@ h1 {
     font-size: 1.5em;
     line-height: 1.5;
     white-space: pre-wrap;
-    outline: none;
+    word-break: break-word;
+    box-sizing: border-box;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* 上層：透明輸入 + 游標 - 疊在最上面，並負責撐開父容器高度 */
+.input-layer {
+    position: relative; /* 改為 relative，使其成為佈局流的一部分 */
     z-index: 2;
-    text-align: left;
+    padding: 10px;
+    font-size: 1.5em;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    outline: none;
     color: transparent;
     caret-color: black;
     overflow-wrap: break-word;
     spellcheck: false;
+    box-sizing: border-box;
+
+    /* --- 核心修正：用 min-height 來處理空內容時的高度 --- */
+    min-height: calc(1.5em * 1.5 + 20px); /* 行高 * 字體大小 + 上下 padding */
 }
 
 .correct {

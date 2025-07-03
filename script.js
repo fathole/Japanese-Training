@@ -32,107 +32,37 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     initializeTokenizer(); // 頁面載入時立即開始初始化
 
-    function getNativeVoices() {
-        return new Promise(resolve => {
-            const getVoices = () => {
-                const nativeVoices = window.speechSynthesis.getVoices()
-                    .filter(v => v.lang === 'ja-JP' && !noveltyVoiceBlocklist.includes(v.name))
-                    .map(v => ({ ...v, source: 'native' })); // 標記來源為 'native'
-                
-                if (nativeVoices.length > 0) {
-                    console.log("成功獲取原生語音:", nativeVoices);
-                    resolve(nativeVoices);
-                }
-            };
-            
-            // 如果語音已載入，直接執行
-            if (window.speechSynthesis.getVoices().length > 0) {
-                getVoices();
-            } else {
-                // 否則等待事件觸發
-                window.speechSynthesis.onvoiceschanged = getVoices;
-                 // 設定備用輪詢以防萬一
-                let voiceLoadInterval = setInterval(() => {
-                    if (window.speechSynthesis.getVoices().length > 0) {
-                        getVoices();
-                        clearInterval(voiceLoadInterval);
-                    }
-                }, 250);
-                setTimeout(() => clearInterval(voiceLoadInterval), 5000);
-            }
-        });
-    }
-
-   function getResponsiveVoices() {
-        return new Promise(resolve => {
-            // ResponsiveVoice 可能需要一點時間初始化
-            const checkRV = () => {
-                if (typeof responsiveVoice !== 'undefined' && responsiveVoice.getVoices().length > 0) {
-                    const rvVoices = responsiveVoice.getVoices()
-                        .filter(v => v.name.startsWith('Japanese'))
-                        .map(v => ({ ...v, source: 'responsivevoice' })); // 標記來源
-                    console.log("成功獲取 ResponsiveVoice 語音:", rvVoices);
-                    resolve(rvVoices);
-                } else {
-                     // 如果尚未就緒，則稍後再試
-                    setTimeout(checkRV, 250);
-                }
-            };
-            checkRV();
-        });
-    }
-
-  async function loadAndPopulateAllVoices() {
-        console.log("正在載入所有語音來源...");
-        voiceSelect.innerHTML = '<option value="">正在載入語音...</option>';
-        
-        try {
-            // 並行獲取兩種語音
-            const [nativeVoices, responsiveVoices] = await Promise.all([
-                getNativeVoices(),
-                getResponsiveVoices()
-            ]);
-
-            // 合併並去重
-            const combined = [...responsiveVoices, ...nativeVoices]; // 讓 RV 語音優先
-            const uniqueVoices = [];
-            const seenNames = new Set();
-            combined.forEach(voice => {
-                if (!seenNames.has(voice.name)) {
-                    seenNames.add(voice.name);
-                    uniqueVoices.push(voice);
-                }
-            });
-
-            voices = uniqueVoices; // 更新全域的 voices 陣列
-            populateVoiceList();
-
-        } catch (error) {
-            console.error("載入語音時發生錯誤:", error);
-            voiceSelect.innerHTML = '<option value="">語音載入失敗</option>';
-        }
-    }
 
    function populateVoiceList() {
+        voices = window.speechSynthesis.getVoices();
+        
+        // --- 核心優化 2：過濾掉黑名單中的語音 ---
+        const japaneseVoices = voices
+            .filter(voice => voice.lang === 'ja-JP' && !noveltyVoiceBlocklist.includes(voice.name));
+
+        // 用於除錯：在控制台查看瀏覽器到底提供了哪些過濾後的語音
+        console.log("過濾後可用的日語語音:", japaneseVoices);
+        console.table(japaneseVoices);
+
         const previouslySelected = localStorage.getItem('preferredJapaneseVoice') || voiceSelect.value;
         voiceSelect.innerHTML = '';
 
-        if (voices.length > 0) {
-             voices.forEach(voice => {
+        if (japaneseVoices.length > 0) {
+            japaneseVoices.forEach(voice => {
                 const option = document.createElement('option');
-                // 標示語音來源，讓使用者更容易分辨
-                const sourceTag = voice.source === 'native' ? '[原生]' : '[RV]';
-                option.textContent = `${voice.name} ${sourceTag}`;
+                option.textContent = `${voice.name} (${voice.lang})`;
                 option.setAttribute('value', voice.name);
                 voiceSelect.appendChild(option);
             });
             
-            const isValidSelection = voices.some(v => v.name === previouslySelected);
+            // 檢查之前儲存的選擇是否還在列表中
+            const isValidSelection = japaneseVoices.some(v => v.name === previouslySelected);
             if (isValidSelection) {
                 voiceSelect.value = previouslySelected;
             } else {
-                voiceSelect.value = voices[0].name; // 預設選擇第一個
+                voiceSelect.value = japaneseVoices[0].name; // 如果不在，則選擇第一個
             }
+
         } else {
             const option = document.createElement('option');
             option.textContent = '未找到可用的日語語音';
@@ -141,15 +71,63 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         selectedVoiceName = voiceSelect.value;
-        localStorage.setItem('preferredJapaneseVoice', selectedVoiceName);
+        localStorage.setItem('preferredJapaneseVoice', selectedVoiceName); // 初始化時也儲存一次
+
+        if (typeof responsiveVoice !== "undefined") {
+            ["Japanese Female", "Japanese Male"].forEach(rv => {
+                const option = document.createElement('option');
+                option.textContent = `${rv} (ResponsiveVoice)`;
+                option.value = `rv::${rv}`;
+                if (option.value === previouslySelected) {
+                    option.selected = true;
+                }
+                voiceSelect.appendChild(option);
+            });
+        }
     }
 
-   // 啟動語音載入流程
-    if ('speechSynthesis' in window && typeof responsiveVoice !== 'undefined') {
-        loadAndPopulateAllVoices();
-    } else {
-        console.error("瀏覽器不支援 Web Speech API 或 ResponsiveVoice 未載入。");
+    function loadAndPopulateVoices() {
+        // 先嘗試直接獲取
+        let currentVoices = window.speechSynthesis.getVoices();
+        if (currentVoices.length > 0) {
+            console.log("語音已成功載入。");
+            populateVoiceList();
+            return;
+        }
 
+        // 如果第一次獲取為空，則依賴 onvoiceschanged 事件
+        console.log("正在等待語音載入...");
+        window.speechSynthesis.onvoiceschanged = () => {
+            console.log("onvoiceschanged 事件觸發！");
+            populateVoiceList();
+            // 為避免重複觸發，一旦成功填充後可以考慮移除監聽器，但通常保留也無妨
+            // window.speechSynthesis.onvoiceschanged = null; 
+        };
+        
+        // 作為備案，如果 onvoiceschanged 在某些瀏覽器上不觸發，則輪詢檢查
+        let voiceLoadInterval = setInterval(() => {
+            currentVoices = window.speechSynthesis.getVoices();
+            if (currentVoices.length > 0) {
+                console.log("透過輪詢成功載入語音。");
+                populateVoiceList();
+                clearInterval(voiceLoadInterval);
+            }
+        }, 250); // 每 250 毫秒檢查一次
+        
+        // 設定一個超時，以防萬一
+        setTimeout(() => {
+            clearInterval(voiceLoadInterval);
+        }, 5000); // 5 秒後停止輪詢
+    }
+
+    if ('speechSynthesis' in window) {
+        loadAndPopulateVoices();
+    } else {
+        console.error("瀏覽器不支援 Web Speech API。");
+        const option = document.createElement('option');
+        option.textContent = '瀏覽器不支援語音';
+        option.disabled = true;
+        voiceSelect.appendChild(option);
     }
 
     // 當使用者改變選項時，更新選擇的語音
@@ -159,47 +137,50 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log(`使用者選擇並儲存了語音: ${selectedVoiceName}`);
     });
 
-   function speak(text) {
-        // 先停止任何正在播放的語音
-        window.speechSynthesis.cancel();
-        if (typeof responsiveVoice !== 'undefined') {
-            responsiveVoice.cancel();
+function speak(text) {
+    if (!text) return;
+
+    // 🟡 使用 ResponsiveVoice 模型
+    if (selectedVoiceName.startsWith("rv::")) {
+        const rvVoice = selectedVoiceName.replace("rv::", "");
+        if (typeof responsiveVoice !== "undefined") {
+            responsiveVoice.speak(text, rvVoice);
+        } else {
+            console.warn("ResponsiveVoice 尚未載入");
         }
-        clearTimeout(speechTimeoutId);
-
-        speechTimeoutId = setTimeout(() => {
-            const selectedVoice = voices.find(v => v.name === selectedVoiceName);
-
-            if (!selectedVoice) {
-                console.error("找不到選擇的語音:", selectedVoiceName);
-                // 增加一個備用播放方案
-                if (responsiveVoice.voiceSupport()) {
-                   responsiveVoice.speak(text, "Japanese Male");
-                }
-                return;
-            }
-
-            console.log(`使用 ${selectedVoice.source} API 播放:`, text);
-
-            if (selectedVoice.source === 'responsivevoice') {
-                // 使用 ResponsiveVoice API
-                 responsiveVoice.speak(text, selectedVoice.name, {
-                    rate: 0.9,
-                    pitch: 1
-                });
-            } else {
-                // 使用原生的 Web Speech API
-                window.speechSynthesis.resume();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.voice = selectedVoice;
-                utterance.lang = 'ja-JP';
-                utterance.rate = 0.9;
-                utterance.pitch = 1;
-                utterance.onerror = (event) => console.error('原生語音合成錯誤:', event.error, event);
-                window.speechSynthesis.speak(utterance);
-            }
-        }, 50);
+        return;
     }
+
+    // 🟢 原生系統語音
+    if (!('speechSynthesis' in window)) return;
+
+    clearTimeout(speechTimeoutId);
+    window.speechSynthesis.cancel();
+
+    speechTimeoutId = setTimeout(() => {
+        window.speechSynthesis.resume();
+        const utterance = new SpeechSynthesisUtterance(text);
+
+        let selectedVoice = null;
+        if (selectedVoiceName) {
+            selectedVoice = voices.find(v => v.name === selectedVoiceName);
+        }
+
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+        } else {
+            const fallbackVoice = voices.find(v => v.lang === 'ja-JP');
+            if (fallbackVoice) utterance.voice = fallbackVoice;
+            else utterance.lang = 'ja-JP';
+        }
+
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.onerror = (event) => console.error('語音合成錯誤:', event.error, event);
+
+        window.speechSynthesis.speak(utterance);
+    }, 50);
+}
 
     function startSpeechEngineKeepAlive() {
         if (keepAliveIntervalId) return;
@@ -225,6 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const text = inputArea.value.trim();
         if (!text) return;
         practiceArea.innerHTML = "";
+        inputArea.value = ""; 
         splitIntoSentences(text).forEach((sentence, index) => {
             const card = createPracticeCard(sentence, index);
             practiceArea.appendChild(card);
