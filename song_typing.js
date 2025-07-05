@@ -5,7 +5,7 @@ const select = document.getElementById("song-select");
 const display = document.getElementById("lyric-display");
 const practiceArea = document.getElementById("practice-area");
 
-const GENIUS_TOKEN = "Bearer 1WJvvOfRFUDiI9ZCaPu4Rb9yodeR3bg0AVKZyBAPnnFElpFzHNny8Lsdh6EfJ6Sx";
+const GENIUS_TOKEN = "Bearer sp1KxLrUowlG5IEa_SFCGlM6uqrrdwl7-f7wTEbAFRP6inUx1zfIMwKlxndAGxNg";
 const CORS_PROXY = "https://cors-proxy.tom1010wong.workers.dev/";
 
 searchBtn.onclick = async () => {
@@ -39,9 +39,9 @@ searchBtn.onclick = async () => {
     loadBtn.hidden = false;
     display.textContent = "請選擇歌曲";
   } catch (e) {
-    console.error(e);
-    display.textContent = "⚠️ 無法存取 Genius API，請先啟用 CORS Proxy：cors-anywhere.herokuapp.com";
-  }
+  console.error(e);
+  display.textContent = "❌ 無法存取 Genius API，請確認你的 CORS Proxy 是否正常：" + CORS_PROXY;
+}
 };
 
 loadBtn.onclick = async () => {
