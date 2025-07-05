@@ -5,7 +5,7 @@ const select = document.getElementById("song-select");
 const display = document.getElementById("lyric-display");
 const practiceArea = document.getElementById("practice-area");
 
-const GENIUS_TOKEN = "Bearer jz-Esy5WZjyg3D8CtRh_3sgcrUWPcBNiHbzWVe69pidWRYsON5VLIcrGjtaRb4WB";
+const GENIUS_TOKEN = "Bearer jz-huHO7c-kcpB3lIP1FpJ_b2ZwU4bjSKma9pHxZhvWg5XzjPC4FH6W-HrEIHkVWQuJ";
 
 searchBtn.onclick = async () => {
   const keyword = document.getElementById("search-input").value.trim();
