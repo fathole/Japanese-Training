@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Genius 歌詞聽寫練習</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="song_typing.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 Genius 歌詞聽寫練習</h1>
+
+    <div class="search-section">
+      <input type="text" id="search-input" placeholder="輸入歌名或歌手，例如：Adele Hello" />
+      <button id="search-button">搜尋歌曲</button>
+    </div>
+
+    <div class="result-section">
+      <select id="song-select" hidden></select>
+      <button id="load-lyrics-button" hidden>載入歌詞</button>
+    </div>
+
+    <div class="lyric-display-area">
+      <div id="lyric-display">請先搜尋歌曲</div>
+    </div>
+
+    <div id="practice-area"></div>
+
+    <script src="song_typing.js"></script>
+  </div>
+</body>
+</html>

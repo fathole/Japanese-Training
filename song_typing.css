@@ -1,0 +1,66 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f0f2f5;
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+.container {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  max-width: 700px;
+  width: 100%;
+}
+h1 {
+  text-align: center;
+}
+.search-section, .result-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+input, select, button {
+  padding: 10px;
+  font-size: 1em;
+}
+.lyric-display-area {
+  text-align: center;
+  font-size: 1.1em;
+  margin-bottom: 15px;
+}
+.practice-card {
+  margin-bottom: 15px;
+}
+.input-wrapper {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  position: relative;
+}
+.display-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  color: #ccc;
+  white-space: pre-wrap;
+}
+.input-layer {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: transparent;
+  caret-color: black;
+  white-space: pre-wrap;
+  outline: none;
+}
+.correct {
+  color: green;
+}
+.incorrect {
+  color: red;
+  text-decoration: underline;
+}
