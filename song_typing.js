@@ -5,7 +5,8 @@ const select = document.getElementById("song-select");
 const display = document.getElementById("lyric-display");
 const practiceArea = document.getElementById("practice-area");
 
-const GENIUS_TOKEN = "Bearer jz-huHO7c-kcpB3lIP1FpJ_b2ZwU4bjSKma9pHxZhvWg5XzjPC4FH6W-HrEIHkVWQuJ";
+const GENIUS_TOKEN = "Bearer 1WJvvOfRFUDiI9ZCaPu4Rb9yodeR3bg0AVKZyBAPnnFElpFzHNny8Lsdh6EfJ6Sx";
+const CORS_PROXY = "https://cors-proxy.tom1010wong.workers.dev/";
 
 searchBtn.onclick = async () => {
   const keyword = document.getElementById("search-input").value.trim();
@@ -15,27 +16,32 @@ searchBtn.onclick = async () => {
   practiceArea.innerHTML = "";
   loadBtn.hidden = true;
 
-  const url = `https://api.genius.com/search?q=${encodeURIComponent(keyword)}`;
-  const res = await fetch(url, {
-    headers: { Authorization: GENIUS_TOKEN }
-  });
-  const data = await res.json();
+  try {
+    const url = `${CORS_PROXY}https://api.genius.com/search?q=${encodeURIComponent(keyword)}`;
+    const res = await fetch(url, {
+      headers: { Authorization: GENIUS_TOKEN }
+    });
+    const data = await res.json();
 
-  if (!data.response.hits.length) {
-    display.textContent = "找不到歌曲";
-    return;
+    if (!data.response.hits.length) {
+      display.textContent = "找不到歌曲";
+      return;
+    }
+
+    data.response.hits.forEach(hit => {
+      const option = document.createElement("option");
+      option.value = hit.result.url;
+      option.textContent = hit.result.full_title;
+      select.appendChild(option);
+    });
+
+    select.hidden = false;
+    loadBtn.hidden = false;
+    display.textContent = "請選擇歌曲";
+  } catch (e) {
+    console.error(e);
+    display.textContent = "⚠️ 無法存取 Genius API，請先啟用 CORS Proxy：cors-anywhere.herokuapp.com";
   }
-
-  data.response.hits.forEach((hit, i) => {
-    const option = document.createElement("option");
-    option.value = hit.result.url;
-    option.textContent = `${hit.result.full_title}`;
-    select.appendChild(option);
-  });
-
-  select.hidden = false;
-  loadBtn.hidden = false;
-  display.textContent = "請選擇歌曲";
 };
 
 loadBtn.onclick = async () => {
@@ -44,8 +50,7 @@ loadBtn.onclick = async () => {
   practiceArea.innerHTML = "";
 
   try {
-    const proxy = "https://cors-anywhere.herokuapp.com/";
-    const res = await fetch(proxy + songUrl);
+    const res = await fetch(CORS_PROXY + songUrl);
     const html = await res.text();
     const doc = new DOMParser().parseFromString(html, "text/html");
 
@@ -68,7 +73,7 @@ loadBtn.onclick = async () => {
     focusCard(0);
   } catch (e) {
     console.error(e);
-    display.textContent = "載入失敗，可能無法存取 Genius 或需要開啟 CORS Proxy。";
+    display.textContent = "❌ 歌詞載入失敗，可能需要開啟 CORS Proxy";
   }
 };
 
